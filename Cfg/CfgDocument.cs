@@ -982,15 +982,38 @@ namespace C
 					pc.Expecting('>');
 					pc.Advance();
 					CfgNode.SkipCommentsAndWhitespace(pc);
-					var rule = new CfgRule(id);
-					rule.SetLocation(line, column, position,pc.FileOrUrl);
-					while (-1 != pc.Current && '\n' != pc.Current)
+					string primId = id;
+					if ('\n' == pc.Current || -1==pc.Current)
 					{
-						id = CfgNode.ParseIdentifier(pc);
-						rule.Right.Add(id);
-						CfgNode.SkipCommentsAndWhitespace(pc);
+						var rule = new CfgRule(primId);
+						result.Rules.Add(rule);
 					}
-					result.Rules.Add(rule);
+					else
+					{
+						while (-1 != pc.Current && '\n' != pc.Current)
+						{
+							var rule = new CfgRule(primId);
+							rule.SetLocation(line, column, position, pc.FileOrUrl);
+							while (-1 != pc.Current && '|' != pc.Current && '\n' != pc.Current)
+							{
+								id = CfgNode.ParseIdentifier(pc);
+								rule.Right.Add(id);
+								CfgNode.SkipCommentsAndWhitespace(pc);
+							}
+							result.Rules.Add(rule);
+							if ('|' == pc.Current)
+							{
+								pc.Advance();
+								CfgNode.SkipCommentsAndWhitespace(pc);
+								if ('\n' == pc.Current || -1 == pc.Current)
+								{
+									rule = new CfgRule(primId);
+									result.Rules.Add(rule);
+								}
+							}
+
+						}
+					}
 				}
 				else if ('=' == pc.Current)
 				{
