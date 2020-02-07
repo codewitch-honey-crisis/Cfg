@@ -848,8 +848,10 @@ namespace C
 		public override string ToString()
 		{
 			var sb = new StringBuilder();
+			var hasAttrs = false;
 			foreach (var attrSet in AttributeSets)
 			{
+				hasAttrs = true;
 				if (0 < attrSet.Value.Count)
 				{
 					sb.Append(string.Concat(attrSet.Key, ": "));
@@ -862,7 +864,8 @@ namespace C
 					sb.AppendLine();
 				}
 			}
-			sb.AppendLine();
+			if(hasAttrs)
+				sb.AppendLine();
 			for (int ic = Rules.Count, i = 0; i < ic; ++i)
 				sb.AppendLine(Rules[i].ToString());
 			return sb.ToString();
