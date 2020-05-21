@@ -1207,16 +1207,16 @@ namespace C
 				while ('\n' == pc.Current)
 				{
 					pc.Advance();
-					CfgNode.SkipCommentsAndWhitespace(pc);
+					CfgNode.SkipCommentsAndWhiteSpace(pc);
 				}
 				var id = CfgNode.ParseIdentifier(pc);
 				if (string.IsNullOrEmpty(id))
 				{
 					pc.Advance();
-					CfgNode.SkipCommentsAndWhitespace(pc);
+					CfgNode.SkipCommentsAndWhiteSpace(pc);
 					continue;
 				}
-				CfgNode.SkipCommentsAndWhitespace(pc);
+				CfgNode.SkipCommentsAndWhiteSpace(pc);
 
 				pc.Expecting(':', '-', '=');
 				if (':' == pc.Current) // attribute set
@@ -1228,20 +1228,20 @@ namespace C
 						var attr = CfgAttribute.Parse(pc);
 						d.Add(attr);
 
-						CfgNode.SkipCommentsAndWhitespace(pc);
+						CfgNode.SkipCommentsAndWhiteSpace(pc);
 						pc.Expecting('\n', ',', -1);
 						if (',' == pc.Current)
 							pc.Advance();
 					}
 					result.AttributeSets.Add(id, d);
-					CfgNode.SkipCommentsAndWhitespace(pc);
+					CfgNode.SkipCommentsAndWhiteSpace(pc);
 				}
 				else if ('-' == pc.Current)
 				{
 					pc.Advance();
 					pc.Expecting('>');
 					pc.Advance();
-					CfgNode.SkipCommentsAndWhitespace(pc);
+					CfgNode.SkipCommentsAndWhiteSpace(pc);
 					string primId = id;
 					if ('\n' == pc.Current || -1==pc.Current)
 					{
@@ -1258,13 +1258,13 @@ namespace C
 							{
 								id = CfgNode.ParseIdentifier(pc);
 								rule.Right.Add(id);
-								CfgNode.SkipCommentsAndWhitespace(pc);
+								CfgNode.SkipCommentsAndWhiteSpace(pc);
 							}
 							result.Rules.Add(rule);
 							if ('|' == pc.Current)
 							{
 								pc.Advance();
-								CfgNode.SkipCommentsAndWhitespace(pc);
+								CfgNode.SkipCommentsAndWhiteSpace(pc);
 								if ('\n' == pc.Current || -1 == pc.Current)
 								{
 									rule = new CfgRule(primId);
@@ -1281,7 +1281,7 @@ namespace C
 				}
 				if ('\n' == pc.Current)
 					pc.Advance();
-				CfgNode.SkipCommentsAndWhitespace(pc);
+				CfgNode.SkipCommentsAndWhiteSpace(pc);
 
 			}
 			return result;

@@ -58,7 +58,7 @@ namespace C
 			while (-1 != pc.Advance() && '\n'!=pc.Current && char.IsWhiteSpace((char)pc.Current)) ;
 			return true;
 		}
-		internal static void SkipCommentsAndWhitespace(LexContext pc)
+		internal static void SkipCommentsAndWhiteSpace(LexContext pc)
 		{
 			while (-1 != pc.Current)
 				if (!_SkipWhiteSpace(pc) && !pc.TrySkipCLineComment())

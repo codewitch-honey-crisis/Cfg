@@ -127,11 +127,11 @@ namespace C
 		/// <returns>A new attribute parsed from the specified input</returns>
 		internal static CfgAttribute Parse(LexContext pc)
 		{
-			SkipCommentsAndWhitespace(pc);
+			SkipCommentsAndWhiteSpace(pc);
 			var attr = new CfgAttribute();
 			attr.SetLocation(pc.Line, pc.Column, pc.Position,pc.FileOrUrl);
 			attr.Name = _ParseAttrName(pc);
-			SkipCommentsAndWhitespace(pc);
+			SkipCommentsAndWhiteSpace(pc);
 			pc.Expecting(',', '=', ',', '>','\n');
 			if ('=' == pc.Current)
 			{
