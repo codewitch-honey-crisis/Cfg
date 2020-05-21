@@ -34,8 +34,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="FA.cs" />
+    <Compile Include="generator-core.cs" />
     <Compile Include="ParseNode.cs" />
-    <Compile Include="Parser.cs" />
+    <Compile Include="LL1Parser.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Token.cs" />

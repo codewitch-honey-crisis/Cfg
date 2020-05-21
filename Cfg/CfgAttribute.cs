@@ -65,7 +65,9 @@ namespace C
 		/// <returns>A new attribute that is equivelent to this attribute</returns>
 		public CfgAttribute Clone()
 		{
-			return new CfgAttribute(Name, Value);
+			var result = new CfgAttribute(Name, Value);
+			result.SourceElement = this;
+			return result;
 		}
 		object ICloneable.Clone()
 			=> Clone();

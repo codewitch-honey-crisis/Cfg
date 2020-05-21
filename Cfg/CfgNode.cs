@@ -27,6 +27,10 @@ namespace C
 		/// </summary>
 		public string FileOrUrl { get; set; }
 		/// <summary>
+		/// Indicates the source element that produced this node. This will be filled if the CFG is generated from a high level specification file
+		/// </summary>
+		public object SourceElement { get; set; }
+		/// <summary>
 		/// Sets the location info for a node
 		/// </summary>
 		/// <param name="line">The 1 based line</param>

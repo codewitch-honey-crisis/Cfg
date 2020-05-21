@@ -1,12 +1,63 @@
 ﻿using C;
+using LLkTest;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace CfgDemo
 {
 	class Program
 	{
-		static void Main(string[] args)
+		public static void Main(string[] args)
+		{
+			var cfg = new CfgDocument();
+			ParserHandler pn = new ParserHandler();
+			// S -> a A a a
+			cfg.Rules.Add(new CfgRule("S", "a", "A", "a", "a"));
+			
+			// S -> b A b a
+			cfg.Rules.Add(new CfgRule("S", "b", "A", "b", "a"));
+			
+			// A -> 
+			cfg.Rules.Add(new CfgRule("A"));
+			
+			// A -> b
+			cfg.Rules.Add(new CfgRule("A", "b"));
+			Console.WriteLine(cfg.ToString());
+
+			cfg.RebuildCache(); // faster if we do it this way
+			var msgs = cfg.TryValidate();
+			var hasErrors = false;
+			foreach(var msg in msgs)
+			{
+				Console.Error.WriteLine(msg);
+				if (ErrorLevel.Error == msg.ErrorLevel)
+					hasErrors = true;
+			}
+			if (hasErrors)
+				return;
+			
+			
+			pn.statusText = "ok";
+			pn.cfg = cfg;
+			pn.finish();
+			var tg = new TableGenerator();
+			tg.construct(cfg, 2);
+			Debug.Assert(3 == tg.Tcounter, "Test failed");
+			Debug.Assert(string.Join(" ", tg.LLksf) == "T:S,{} T:A,{a:a} T:A,{b:a}", "Test failed");
+			Debug.Assert(string.Join(" ", tg.PT.fif) == "T0 T1 T2 :a :b |$","Test failed");
+			Debug.Assert(string.Join(" ", tg.PT.sif) == "a:a a:b a b:a b:b b ","Test failed");
+			Debug.Assert(6 == tg.PT.field.Count, "Test failed");
+			for(var i = 0;i<tg.PT.field.Count;++i)
+			{
+				var fld = tg.PT.field[i];
+				Debug.Assert(7 == fld.Count, "Test failed");
+				
+			}
+			
+			return;
+		}
+		static void Demo(string[] args)
 		{
 			if(0==args.Length)
 			{
@@ -133,7 +184,7 @@ namespace CfgDemo
 			Console.WriteLine("Creating tokenizer");
 			var tokenizer = new Tokenizer(lexer, text);
 			Console.WriteLine("Creating parser");
-			var parser = new Parser(parseTable, tokenizer, "Expr");
+			var parser = new LL1Parser(parseTable, tokenizer, "Expr");
 			Console.WriteLine();
 			Console.WriteLine("Parsing " + text);
 			Console.WriteLine(parser.ParseSubtree());

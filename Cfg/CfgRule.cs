@@ -65,18 +65,31 @@ namespace C
 		/// <summary>
 		/// Provides a string representation of the rule
 		/// </summary>
-		/// <returns>Returns a rule of the form A -> a A b suitable for use with many grammar tools such as http://hackingoff.com/compilers/ll-1-parser-generator</returns>
-		public override string ToString()
+		/// <param name="fmt">The format specifier. Can be null or "y"</param>
+		public string ToString(string fmt)
 		{
 			var sb = new StringBuilder();
 			sb.Append(Left);
-			sb.Append(" ->");
+			if ("y" == fmt)
+				sb.Append(" :");
+			else
+				sb.Append(" ->");
 			for(int ic=Right.Count,i=0;i<ic;++i)
 			{
 				sb.Append(" ");
 				sb.Append(Right[i]);
 			}
+			if ("y" == fmt)
+				sb.Append(";");
 			return sb.ToString();
+		}
+		/// <summary>
+		/// Provides a string representation of the rule
+		/// </summary>
+		/// <returns>Returns a rule of the form A -> a A b suitable for use with many grammar tools such as http://hackingoff.com/compilers/ll-1-parser-generator</returns>
+		public override string ToString()
+		{
+			return ToString(null);
 		}
 		/// <summary>
 		/// Returns a deep copy of the rule
@@ -84,7 +97,9 @@ namespace C
 		/// <returns>A new rule that is equivelent to the given rule</returns>
 		public CfgRule Clone()
 		{
-			return new CfgRule(Left, Right);
+			var result = new CfgRule(Left, Right);
+			result.SourceElement = this;
+			return result;
 		}
 		object ICloneable.Clone()
 			=> Clone();

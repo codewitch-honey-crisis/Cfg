@@ -6,21 +6,24 @@ using System.Text;
 
 namespace C
 {
+	internal static class CfgErrors
+	{
+		public const int NoStartSymbol = 250;
+		public const int DuplicateRule = 251;
+		public const int UnreferencedNonTerminal = 252;
+		public const int DuplicateStartAttribute=253;
+		public const int NoRules=254;
+	}
 	/// <summary>
 	/// Represents a Context Free Grammar (CFG)
 	/// </summary>
 #if CFGLIB
 	public
 #endif
-		class CfgDocument : IEquatable<CfgDocument>, ICloneable
+		class CfgDocument : CfgNode, IEquatable<CfgDocument>, ICloneable
 	{
 		HashSet<string> _ntCache = null;
 		HashSet<string> _sCache = null;
-		string _fileOrUrl;
-		/// <summary>
-		/// Indicates the file or URL where the document was loaded from, if any
-		/// </summary>
-		public string FileOrUrl { get { return _fileOrUrl; } set { _fileOrUrl = value; } }
 		
 		/// <summary>
 		/// Clears any cached data
@@ -107,6 +110,113 @@ namespace C
 						return true;
 				return false;
 			}
+		}
+		public bool IsLeftRecursive {
+			get {
+				CfgRule grulei;
+
+				string gelj;
+				var nils = this._GetNilNonTerminals();
+
+				for (int ic=Rules.Count,i = 0; i < ic; ++i)
+				{
+					grulei = Rules[i];
+
+					for (var j = 0; j < grulei.Right.Count; j++)
+					{
+						gelj = grulei.Right[j];
+
+						if (!IsNonTerminal(gelj)) break;
+
+						if (this._TestLeftRecusion(new List<string>(), gelj, nils))
+							return true;
+
+						if (!nils.Contains(gelj)) break;
+					}
+				}
+				return false;
+			}
+		}
+		List<string> _GetNilNonTerminals()
+		{
+			CfgRule grulei;
+			string gelj;
+			List<string> olds;
+			var news = new List<string>();
+
+			do
+			{
+				olds = news;
+				news = new List<string>();
+
+				for (int ic=Rules.Count,i = 0; i < ic; ++i)
+				{
+					grulei = Rules[i];
+
+					// count rules with eps
+					if (grulei.IsNil)
+					{
+						news.Add(grulei.Left);
+						continue;
+					}
+
+					// count rules with all eps nonterminals
+					for (var j = 0; j < grulei.Right.Count; j++)
+					{
+						gelj = grulei.Right[j];
+
+						if (!IsNonTerminal(gelj))
+							break;
+
+						if (olds.Contains(gelj))
+						{
+							if (j != grulei.Right.Count - 1)
+								continue;
+							else
+								news.Add(grulei.Left);
+						}
+
+						break;
+					}
+				}
+
+			} while (olds.Count != news.Count);
+
+			return news;
+		}
+
+
+		bool _TestLeftRecusion(IList<string> before, string current, IList<string> empty)
+		{
+			CfgRule grulei;
+			string gelj;
+
+			if (before.Contains(current))
+			{
+				return true;
+			}
+
+			before.Add(current);
+
+			for (int ic=Rules.Count,i=0; i < ic; ++i)
+			{
+				grulei = Rules[i];
+
+				if (grulei.Left != current) continue;
+
+				for (var j = 0; j < grulei.Right.Count; j++)
+				{
+					gelj = grulei.Right[j];
+
+					if (!IsNonTerminal(gelj)) break;
+
+					if (this._TestLeftRecusion(before, gelj, empty))
+						return true;
+
+					if (!empty.Contains(gelj)) break;
+				}
+			}
+			return false;
 		}
 		#region Symbols
 		/// <summary>
@@ -694,6 +804,107 @@ namespace C
 			return result;
 		}
 		/// <summary>
+		/// Checks the document for validity
+		/// </summary>
+		public void Validate()
+		{
+			CfgException.ThrowIfErrors(TryValidate());
+		}
+		/// <summary>
+		/// Checks the document for validity
+		/// </summary>
+		/// <returns>A list of validation messages, warnings and errors</returns>
+		public IList<CfgMessage> TryValidate()
+		{
+			var result = new List<CfgMessage>();
+			var hasSS = false;
+			string ss=null;
+			var ll = 0;
+			foreach (var sattr in AttributeSets)
+			{
+				var i = sattr.Value.IndexOf("start");
+				var a = sattr.Value[i];
+				ll = a.Line;
+				if (-1 < i && (a.Value is bool) && (bool)a.Value)
+				{
+					if (hasSS)
+						result.Add(new CfgMessage(ErrorLevel.Warning, CfgErrors.DuplicateStartAttribute, "Duplicate start attribute specified on "+sattr.Key, a.Line,a.Column, a.Position, a.FileOrUrl));
+					ss = sattr.Key;
+					hasSS = true;
+				}
+			}
+			if(0==Rules.Count)
+			{
+				result.Add(new CfgMessage(ErrorLevel.Warning, CfgErrors.NoRules, "No rules specified", ll+1, 1, 0L, FileOrUrl));
+				return result;
+			}
+			if (!hasSS)
+			{
+				ss = StartSymbol;
+				var l = 1;
+				var c = 1;
+				var p = 0L;
+				var f = FileOrUrl;
+				var s = "";
+				if(0<Rules.Count)
+				{
+					var r = Rules[0];
+					l = r.Line;
+					c = r.Column;
+					p = r.Position;
+					f = r.FileOrUrl;
+					s = " - " + ss + " will be used";
+				}
+				result.Add(new CfgMessage(ErrorLevel.Warning, CfgErrors.NoStartSymbol, "No start symbol specified" +s, l, c, p, f));
+			}
+			var seen = new HashSet<CfgRule>();
+			for(int ic=Rules.Count,i=0;i<ic;++i)
+			{
+				var rule = Rules[i];
+				if (!seen.Add(rule))
+					result.Add(new CfgMessage(ErrorLevel.Error, CfgErrors.DuplicateRule, "Duplicate rule: "+rule.ToString(), rule.Line, rule.Column, rule.Position, rule.FileOrUrl));
+			}
+			var nts = FillNonTerminals();
+			
+			for(int ic=nts.Count,i=0;i<ic;++i)
+			{
+				var nt = nts[i];
+				if (nt == ss) continue;
+				var found = false;
+				for(int jc=Rules.Count,j=0;j<jc;++j)
+				{
+					var rule = Rules[j];
+					for(int kc=rule.Right.Count,k=0;k<kc;++k)
+					{
+						var sym = rule.Right[k];
+						if(sym==nt)
+						{
+							found = true;
+							break;
+						}
+					}
+				}
+				if(!found)
+				{
+					var ntr = FillNonTerminalRules(nt);
+					var l = 0;
+					var c = 0;
+					var p = 0L;
+					var f = FileOrUrl;
+					if(0<ntr.Count)
+					{
+						var r = ntr[0];
+						l = r.Line;
+						c = r.Column;
+						p = r.Position;
+						f = r.FileOrUrl;
+					}
+					result.Add(new CfgMessage(ErrorLevel.Warning, CfgErrors.UnreferencedNonTerminal, "Unreferenced non-terminal symbol: " + nt, l, c, p, f));
+				}
+			}
+			return result;
+		}
+		/// <summary>
 		/// Gets a unique symbol name. The name is guaranteed not to appear in the grammar at the time of creation
 		/// </summary>
 		/// <param name="name">The name to base the unique name on</param>
@@ -845,30 +1056,77 @@ namespace C
 		/// Provides a string representation of the grammar
 		/// </summary>
 		/// <returns>A string representing the grammar</returns>
-		public override string ToString()
+		public string ToString(string fmt)
 		{
 			var sb = new StringBuilder();
-			var hasAttrs = false;
-			foreach (var attrSet in AttributeSets)
+			if ("y" == fmt)
 			{
-				hasAttrs = true;
-				if (0 < attrSet.Value.Count)
+				sb.Append("%token");
+				foreach(var t in FillTerminals())
 				{
-					sb.Append(string.Concat(attrSet.Key, ": "));
-					var delim = "";
-					for (int jc = attrSet.Value.Count, j = 0; j < jc; ++j)
+					if ("#ERROR" != t && "#EOS" != t)
 					{
-						sb.Append(string.Concat(delim, attrSet.Value[j].ToString()));
-						delim = ", ";
+						sb.Append(" ");
+						sb.Append(t);
 					}
+				}
+				sb.AppendLine();
+				sb.Append("%%");
+				foreach(var nt in FillNonTerminals())
+				{
 					sb.AppendLine();
+					sb.Append(nt);
+					sb.Append(" :");
+					var rules = FillNonTerminalRules(nt);
+					var first = true;
+					foreach(var rule in rules)
+					{
+						if (first)
+							first = false;
+						else
+						{
+							sb.AppendLine();
+							sb.Append("\t|");
+						}
+						foreach(var right in rule.Right)
+						{
+							sb.Append(" ");
+							sb.Append(right);
+						}
+						
+					}
+					sb.Append(";");
 				}
 			}
-			if(hasAttrs)
-				sb.AppendLine();
-			for (int ic = Rules.Count, i = 0; i < ic; ++i)
-				sb.AppendLine(Rules[i].ToString());
+			else
+			{
+
+				var hasAttrs = false;
+				foreach (var attrSet in AttributeSets)
+				{
+					hasAttrs = true;
+					if (0 < attrSet.Value.Count)
+					{
+						sb.Append(string.Concat(attrSet.Key, ": "));
+						var delim = "";
+						for (int jc = attrSet.Value.Count, j = 0; j < jc; ++j)
+						{
+							sb.Append(string.Concat(delim, attrSet.Value[j].ToString()));
+							delim = ", ";
+						}
+						sb.AppendLine();
+					}
+				}
+				if (hasAttrs)
+					sb.AppendLine();
+				for (int ic = Rules.Count, i = 0; i < ic; ++i)
+					sb.AppendLine(Rules[i].ToString());
+			}
 			return sb.ToString();
+		}
+		public override string ToString()
+		{
+			return ToString(null);
 		}
 		/// <summary>
 		/// Creates a deep-copy of the grammar
@@ -946,7 +1204,6 @@ namespace C
 				var line = pc.Line;
 				var column = pc.Column;
 				var position = pc.Position;
-				//CfgNode.SkipCommentsAndWhitespace(pc);
 				while ('\n' == pc.Current)
 				{
 					pc.Advance();

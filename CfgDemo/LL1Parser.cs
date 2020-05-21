@@ -7,7 +7,7 @@ namespace CfgDemo
 	/// <summary>
 	/// An enumeration indicating the node types of the parser
 	/// </summary>
-	public enum ParserNodeType
+	public enum LLNodeType
 	{
 		/// <summary>
 		/// Indicates the initial state.
@@ -38,37 +38,37 @@ namespace CfgDemo
 	/// An LL(1) parser implemented as a pull-style parser.
 	/// </summary>
 	/// <remarks>This interface is similar in use to <see cref="System.Xml.XmlReader"/></remarks>
-	class Parser
+	class LL1Parser
 	{
 		string _startSymbol;
 		Dictionary<string, Dictionary<string, CfgRule>> _parseTable;
 		Tokenizer _tokenizer;
-		IEnumerator<Token> _tokEnum;
+		IEnumerator<Token> _input;
 		Token _errorToken;
 		Stack<string> _stack;
 		/// <summary>
-		/// Indicates the <see cref="ParserNodeType"/> at the current position.
+		/// Indicates the <see cref="LLNodeType"/> at the current position.
 		/// </summary>
-		public ParserNodeType NodeType {
+		public LLNodeType NodeType {
 			get {
 				if (null != _errorToken.Symbol)
-					return ParserNodeType.Error;
+					return LLNodeType.Error;
 				if(_stack.Count>0)
 				{
 					var s = _stack.Peek();
 					if (s.StartsWith("#END "))
-						return ParserNodeType.EndNonTerminal;
-					if (s == _tokEnum.Current.Symbol)
-						return ParserNodeType.Terminal;
-					return ParserNodeType.NonTerminal;
+						return LLNodeType.EndNonTerminal;
+					if (s == _input.Current.Symbol)
+						return LLNodeType.Terminal;
+					return LLNodeType.NonTerminal;
 				}
 				try
 				{
-					if("#EOS"==_tokEnum.Current.Symbol)
-						return ParserNodeType.EndDocument;
+					if("#EOS"==_input.Current.Symbol)
+						return LLNodeType.EndDocument;
 				}
 				catch { }
-				return ParserNodeType.Initial;
+				return LLNodeType.Initial;
 			}
 		}
 		/// <summary>
@@ -91,15 +91,15 @@ namespace CfgDemo
 		/// <summary>
 		/// Indicates the current line
 		/// </summary>
-		public int Line => (null==_errorToken.Symbol)?_tokEnum.Current.Line:_errorToken.Line;
+		public int Line => (null==_errorToken.Symbol)?_input.Current.Line:_errorToken.Line;
 		/// <summary>
 		/// Indicates the current column
 		/// </summary>
-		public int Column => (null == _errorToken.Symbol) ? _tokEnum.Current.Column:_errorToken.Column;
+		public int Column => (null == _errorToken.Symbol) ? _input.Current.Column:_errorToken.Column;
 		/// <summary>
 		/// Indicates the current position
 		/// </summary>
-		public long Position => (null == _errorToken.Symbol) ? _tokEnum.Current.Position:_errorToken.Position;
+		public long Position => (null == _errorToken.Symbol) ? _input.Current.Position:_errorToken.Position;
 		/// <summary>
 		/// Indicates the current value
 		/// </summary>
@@ -107,10 +107,10 @@ namespace CfgDemo
 			get {
 				switch (NodeType)
 				{
-					case ParserNodeType.Error:
+					case LLNodeType.Error:
 						return _errorToken.Value;
-					case ParserNodeType.Terminal:
-						return _tokEnum.Current.Value;
+					case LLNodeType.Terminal:
+						return _input.Current.Value;
 				}
 				return null;
 			}
@@ -121,14 +121,14 @@ namespace CfgDemo
 		/// <param name="parseTable">The parse table to use</param>
 		/// <param name="tokenizer">The tokenizer to use </param>
 		/// <param name="startSymbol">The start symbol</param>
-		public Parser(Dictionary<string, Dictionary<string, CfgRule>> parseTable,
+		public LL1Parser(Dictionary<string, Dictionary<string, CfgRule>> parseTable,
 			Tokenizer tokenizer,
 			string startSymbol
 			)
 		{
 			_parseTable = parseTable;
 			_tokenizer = tokenizer;
-			_tokEnum = tokenizer.GetEnumerator();
+			_input = tokenizer.GetEnumerator();
 			_startSymbol = startSymbol;
 			_stack = new Stack<string>();
 			_errorToken.Symbol = null;
@@ -140,16 +140,16 @@ namespace CfgDemo
 		public bool Read()
 		{
 			var n = NodeType;
-			if (ParserNodeType.Error == n && "#EOS" == _tokEnum.Current.Symbol)
+			if (LLNodeType.Error == n && "#EOS" == _input.Current.Symbol)
 			{
 				_errorToken.Symbol = null;
 				_stack.Clear();
 				return true;
 			}
-			if (ParserNodeType.Initial == n)
+			if (LLNodeType.Initial == n)
 			{
 				_stack.Push(_startSymbol);
-				_tokEnum.MoveNext();
+				_input.MoveNext();
 				return true;
 			}
 			_errorToken.Symbol = null; // clear the error status
@@ -161,10 +161,10 @@ namespace CfgDemo
 					_stack.Pop();
 					return true;
 				}
-				if(sid==_tokEnum.Current.Symbol) // terminal
+				if(sid==_input.Current.Symbol) // terminal
 				{
 					// lex the next token
-					_tokEnum.MoveNext();
+					_input.MoveNext();
 
 					_stack.Pop();
 					return true;
@@ -174,7 +174,7 @@ namespace CfgDemo
 				if(_parseTable.TryGetValue(sid, out d))
 				{
 					CfgRule rule;
-					if(d.TryGetValue(_tokEnum.Current.Symbol, out rule))
+					if(d.TryGetValue(_input.Current.Symbol, out rule))
 					{
 						_stack.Pop();
 
@@ -197,7 +197,7 @@ namespace CfgDemo
 				return true;
 			}
 			// last symbol must be the end of the input stream or there's a problem
-			if ("#EOS" != _tokEnum.Current.Symbol)
+			if ("#EOS" != _input.Current.Symbol)
 			{
 				_Panic();
 				return true;
@@ -214,12 +214,12 @@ namespace CfgDemo
 			if (!Read())
 				return null;
 			var nn = NodeType;
-			if (ParserNodeType.EndNonTerminal==nn)
+			if (LLNodeType.EndNonTerminal==nn)
 				return null;
 
 			var result = new ParseNode();
 			
-			if (ParserNodeType.NonTerminal == nn)
+			if (LLNodeType.NonTerminal == nn)
 			{
 				result.Symbol = Symbol;
 				while (true)
@@ -236,14 +236,14 @@ namespace CfgDemo
 				
 				return result;
 			}
-			else if (ParserNodeType.Terminal == nn)
+			else if (LLNodeType.Terminal == nn)
 			{
 				result.SetLocationInfo(Line, Column, Position);
 				result.Symbol = Symbol;
 				result.Value = Value;
 				return result;
 			}
-			else if (ParserNodeType.Error == nn)
+			else if (LLNodeType.Error == nn)
 			{
 				System.Diagnostics.Debug.WriteLine("Error");
 				result.SetLocationInfo(Line, Column, Position);
@@ -259,7 +259,7 @@ namespace CfgDemo
 		void _Panic()
 		{
 			// turn off error reporting if we're already at the end.
-			if ("#EOS" == _tokEnum.Current.Symbol)
+			if ("#EOS" == _input.Current.Symbol)
 			{
 				_errorToken.Symbol = null;
 				return;
@@ -267,36 +267,36 @@ namespace CfgDemo
 			// fill the error token
 			_errorToken.Symbol = "#ERROR"; // turn on error reporting
 			_errorToken.Value = "";
-			_errorToken.Column = _tokEnum.Current.Column;
-			_errorToken.Line = _tokEnum.Current.Line;
-			_errorToken.Position= _tokEnum.Current.Position;
+			_errorToken.Column = _input.Current.Column;
+			_errorToken.Line = _input.Current.Line;
+			_errorToken.Position= _input.Current.Position;
 			string s;
 			Dictionary<string, CfgRule> d;
 			
 			if (_parseTable.TryGetValue(_stack.Peek(), out d))
 			{
 				var di = d as IDictionary<string, CfgRule>;
-				_errorToken.Value += _tokEnum.Current.Value;
-				while (!di.Keys.Contains(s = _tokEnum.Current.Symbol) 
-					&& s != "#EOS" && _tokEnum.MoveNext())
+				_errorToken.Value += _input.Current.Value;
+				while (!di.Keys.Contains(s = _input.Current.Symbol) 
+					&& s != "#EOS" && _input.MoveNext())
 				{
-					if(!di.Keys.Contains(_tokEnum.Current.Symbol))
-						_errorToken.Value += _tokEnum.Current.Value;
+					if(!di.Keys.Contains(_input.Current.Symbol))
+						_errorToken.Value += _input.Current.Value;
 				}
 			}
 			else
 			{
 				do
 				{
-					s = _tokEnum.Current.Symbol;
-					_errorToken.Value += _tokEnum.Current.Value;
-					if (!_tokEnum.MoveNext())
+					s = _input.Current.Symbol;
+					_errorToken.Value += _input.Current.Value;
+					if (!_input.MoveNext())
 						break;
 
 				} while ("#EOS" != s && !_stack.Contains(s));
 
 			}
-			while (_stack.Contains((s = _tokEnum.Current.Symbol)) && _stack.Peek() != s)
+			while (_stack.Contains((s = _input.Current.Symbol)) && _stack.Peek() != s)
 				_stack.Pop();
 		}
 	}
